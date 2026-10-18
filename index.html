@@ -56,7 +56,8 @@ h1{font-size:2.2rem;margin:10px 0 0;text-align:center;text-shadow:0 3px 0 #c0392
   <h1>🥊 かいじゅう<br>ボクシング</h1>
   <div style="font-size:5rem">👹 👾 🦖</div>
   <div class="card"><h3>れんしゅうする おと</h3>
-    <div class="chips" id="soundChips"></div></div>
+    <div class="chips" id="soundChips" style="flex-direction:column"></div>
+    <button class="big small gray" id="openAll" style="margin-top:10px;font-size:.9rem;padding:8px;box-shadow:none">👪 ぜんぶのステージをひらく（おうえんの人用）</button></div>
   <div class="card"><h3>はんてい</h3>
     <div class="chips" id="modeChips"></div></div>
   <div class="card"><h3>むずかしさ</h3>
@@ -92,6 +93,7 @@ h1{font-size:2.2rem;margin:10px 0 0;text-align:center;text-shadow:0 3px 0 #c0392
   <div id="resultScore">0</div>
   <div id="resultMsg" style="font-size:1.6rem;text-align:center"></div>
   <div style="font-size:4rem">🏆</div>
+  <button class="big green" id="nextLv" style="display:none">▶ つぎのステージへ！</button>
   <button class="big red" id="again">もういちど！</button>
   <button class="big gray small" id="toHome">ホームへ</button>
 </div>
@@ -148,7 +150,8 @@ const RETRY=["おしい！もういちど！","がんばれ！","もういっか
 const ROUND_SIZE=10;
 
 // ===== 状態 =====
-const S={sounds:new Set(Object.keys(WORDS).slice(0,1)),mode:"auto",level:"easy"};
+const S={lv:0,mode:"auto",level:"easy"};
+const LV=Object.keys(WORDS);
 let queue=[],idx=0,score=0,cur=null,busy=false,listening=false,rec=null;
 const $=id=>document.getElementById(id);
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -163,9 +166,23 @@ function chips(el,items,isSel,onClick){
     el.appendChild(d);
   });
 }
-chips($("soundChips"),Object.keys(WORDS).map(k=>[k,k]),k=>S.sounds.has(k),k=>{
-  if(S.sounds.has(k)){if(S.sounds.size>1)S.sounds.delete(k)}else S.sounds.add(k);
-});
+// ステージ（10たい ぜんぶ たおすと つぎがひらく）
+function unlocked(){try{return Math.min(LV.length,Math.max(1,+localStorage.getItem("kaiju-unlocked")||1))}catch(e){return 1}}
+function setUnlocked(n){try{if(n>unlocked())localStorage.setItem("kaiju-unlocked",n)}catch(e){}}
+function renderStages(){
+  const u=unlocked(),el=$("soundChips");el.innerHTML="";
+  LV.forEach((name,i)=>{
+    const lock=i>=u,d=document.createElement("div");
+    d.className="chip"+(i===S.lv?" sel":"");
+    d.textContent=(lock?"🔒 ":"")+"ステージ"+(i+1)+"　"+name;
+    d.onclick=()=>{
+      if(lock){alert("まえの ステージで 10たい ぜんぶ たおすと ひらくよ！");return}
+      S.lv=i;renderStages();
+    };
+    el.appendChild(d);
+  });
+}
+renderStages();
 const modes=[["auto","🎤 じどう（こえをきく）"],["helper","👪 おうえんの人がはんてい"]];
 if(!SR){S.mode="helper";}
 chips($("modeChips"),modes,k=>S.mode===k,k=>{if(k==="auto"&&!SR){alert("このブラウザは音声にんしき非対応です。Chrome か Safari で ひらいてください");return}S.mode=k});
@@ -263,12 +280,13 @@ function sfxKO(){                                                            // 
   [523,659,784,1047].forEach((f,i)=>tone(f,.25+i*.12,.25,"square",.2));
   tone(1047,.75,.5,"triangle",.3);
 }
+function sfxClear(){[523,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,i*.13,.25,"square",.2));tone(1319,.95,.7,"triangle",.3)}
 function sfxMiss(){tone(330,0,.15,"triangle",.2);tone(262,.15,.25,"triangle",.2)}
 
 // ===== ゲーム進行 =====
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function startGame(){
-  let pool=[];S.sounds.forEach(k=>pool.push(...WORDS[k].filter(x=>EMO[x.w])));
+  let pool=[];pool.push(...WORDS[LV[S.lv]].filter(x=>EMO[x.w]));
   queue=shuffle(pool).slice(0,ROUND_SIZE);
   idx=0;score=0;$("score").textContent=0;
   $("judgeRow").style.display=S.mode==="helper"?"flex":"none";
@@ -306,7 +324,15 @@ function onResult(ok){
 }
 function finish(){
   $("resultScore").textContent=score;
-  $("resultMsg").textContent=score>=8?"すごい！チャンピオン！":score>=5?"よくがんばったね！":"またやろうね！";
+  const perfect=score>=queue.length;
+  const hasNext=S.lv<LV.length-1;
+  let msg;
+  if(perfect&&hasNext){setUnlocked(S.lv+2);msg="🎉 パーフェクト！<br>つぎの ステージが ひらいたよ！";setTimeout(sfxClear,300)}
+  else if(perfect){msg="🏆 ぜんぶ クリア！<br>チャンピオン！";setTimeout(sfxClear,300)}
+  else msg=(score>=5?"よくがんばったね！":"またやろうね！")+"<br><small>"+queue.length+"たい ぜんぶ たおすと つぎのステージ</small>";
+  $("resultMsg").innerHTML=msg;
+  $("nextLv").style.display=(perfect&&hasNext)?"block":"none";
+  renderStages();
   try{const b=+localStorage.getItem("kaiju-best")||0;if(score>b)localStorage.setItem("kaiju-best",score)}catch(e){}
   loadBest();show("result");
 }
@@ -319,6 +345,8 @@ $("okBtn").onclick=()=>onResult(true);
 $("ngBtn").onclick=()=>onResult(false);
 $("quit").onclick=()=>{endListen();speechSynthesis&&speechSynthesis.cancel();show("home")};
 $("again").onclick=startGame;
+$("nextLv").onclick=()=>{S.lv=Math.min(S.lv+1,LV.length-1);renderStages();startGame()};
+$("openAll").onclick=()=>{setUnlocked(LV.length);renderStages()};
 $("toHome").onclick=()=>show("home");
 </script>
 </body>
