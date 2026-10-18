@@ -231,6 +231,40 @@ function startListen(){
 }
 function endListen(){listening=false;$("mic").classList.remove("listening");$("mic").textContent="🎤 いってみよう！";try{rec&&rec.stop()}catch(e){}}
 
+// ===== こうかおん（Web Audio。ファイル不要） =====
+let AC=null;
+function ac(){
+  try{
+    if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==="suspended")AC.resume();
+  }catch(e){}
+  return AC;
+}
+function tone(freq,start,dur,type="square",vol=.25,slideTo){
+  const c=ac();if(!c)return;
+  const t=c.currentTime+start,o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,t);
+  if(slideTo)o.frequency.exponentialRampToValueAtTime(slideTo,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur+.02);
+}
+function noise(start,dur,vol=.5){
+  const c=ac();if(!c)return;
+  const t=c.currentTime+start,n=Math.floor(c.sampleRate*dur),buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+  const s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();
+  f.type="lowpass";f.frequency.value=1800;
+  s.buffer=buf;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  s.connect(f);f.connect(g);g.connect(c.destination);s.start(t);
+}
+function sfxPunch(){noise(0,.18,.6);tone(160,0,.2,"sine",.6,40)}            // ドカッ
+function sfxKO(){                                                            // ファンファーレ
+  tone(150,0,.5,"sawtooth",.25,50);                                         // やられ
+  [523,659,784,1047].forEach((f,i)=>tone(f,.25+i*.12,.25,"square",.2));
+  tone(1047,.75,.5,"triangle",.3);
+}
+function sfxMiss(){tone(330,0,.15,"triangle",.2);tone(262,.15,.25,"triangle",.2)}
+
 // ===== ゲーム進行 =====
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function startGame(){
@@ -259,12 +293,13 @@ function onResult(ok){
     busy=true;
     const g=$("glove"),m=$("monster"),fx=$("fx");
     g.classList.add("punch");
-    setTimeout(()=>{m.className="hit";fx.textContent="KO!";fx.className="";void fx.offsetWidth;fx.className="show";
+    setTimeout(()=>{sfxPunch();setTimeout(sfxKO,120);m.className="hit";fx.textContent="KO!";fx.className="";void fx.offsetWidth;fx.className="show";
       g.classList.remove("punch");setTimeout(()=>{m.className="down"},350)},150);
     score++;$("score").textContent=score;
     $("msg").textContent="🎉 "+PRAISE[Math.floor(Math.random()*PRAISE.length)];
     setTimeout(()=>{idx++;nextWord()},1800);
   }else{
+    sfxMiss();
     $("msg").textContent=RETRY[Math.floor(Math.random()*RETRY.length)];
     const m=$("monster");m.className="";void m.offsetWidth;m.className="hit";
   }
@@ -276,7 +311,7 @@ function finish(){
   loadBest();show("result");
 }
 
-$("startBtn").onclick=startGame;
+$("startBtn").onclick=()=>{ac();startGame()};
 $("mic").onclick=startListen;
 $("listen").onclick=()=>speak(cur.w);
 $("skip").onclick=()=>{if(busy)return;idx++;nextWord()};
