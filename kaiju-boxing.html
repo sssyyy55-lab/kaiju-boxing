@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>かいじゅうボクシング</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;background:linear-gradient(#1b2a6b,#3b1d6b);color:#fff;min-height:100vh;display:flex;justify-content:center}
+#app{width:100%;max-width:560px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.screen{display:none;flex-direction:column;gap:12px;align-items:center}
+.screen.on{display:flex}
+h1{font-size:2.2rem;margin:10px 0 0;text-align:center;text-shadow:0 3px 0 #c0392b}
+.big{font-size:1.6rem;font-weight:bold;border:none;border-radius:22px;padding:18px 24px;width:100%;color:#fff;box-shadow:0 6px 0 rgba(0,0,0,.35);cursor:pointer}
+.big:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.red{background:#e74c3c}.blue{background:#2e86de}.green{background:#27ae60}.gray{background:#7f8c8d}.yellow{background:#f1c40f;color:#333}
+.small{font-size:1.1rem;padding:12px}
+.card{background:rgba(255,255,255,.12);border-radius:18px;padding:12px;width:100%}
+.card h3{margin:0 0 8px;font-size:1.1rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.2);font-size:1.1rem;cursor:pointer;border:3px solid transparent}
+.chip.sel{background:#f1c40f;color:#333;border-color:#fff}
+#hud{display:flex;justify-content:space-between;width:100%;font-size:1.5rem;font-weight:bold}
+#ring{position:relative;width:100%;height:230px;background:radial-gradient(#5b4b9b,#2a1f5a);border-radius:24px;border:6px solid #f1c40f;overflow:hidden}
+#monster{position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);font-size:7rem;transition:transform .2s}
+#monster.hit{animation:hit .5s}
+#monster.down{animation:down .8s forwards}
+#monster.in{animation:inn .5s}
+@keyframes hit{0%{transform:translate(-50%,-55%) rotate(0)}30%{transform:translate(-30%,-55%) rotate(20deg) scale(.9)}100%{transform:translate(-50%,-55%) rotate(0)}}
+@keyframes down{to{transform:translate(-50%,200%) rotate(120deg);opacity:0}}
+@keyframes inn{from{transform:translate(-50%,-250%)}to{transform:translate(-50%,-55%)}}
+#glove{position:absolute;left:50%;bottom:-120px;font-size:6rem;transform:translateX(-50%);transition:bottom .15s}
+#glove.punch{bottom:90px}
+#fx{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-size:3rem;font-weight:bold;color:#f1c40f;text-shadow:0 3px 0 #c0392b;opacity:0;pointer-events:none}
+#fx.show{animation:fx .8s}
+@keyframes fx{0%{opacity:1;transform:translate(-50%,0) scale(.5)}100%{opacity:0;transform:translate(-50%,-60px) scale(1.5)}}
+#wordCard{display:flex;align-items:center;justify-content:center;gap:14px;background:#fff;border-radius:20px;padding:8px 16px;width:100%}
+#pic{font-size:5.5rem;line-height:1}
+#word b{color:#e74c3c;border-bottom:6px solid #e74c3c}
+#soundLabel{font-size:1.3rem;text-align:center;font-weight:bold;color:#f1c40f}
+#word{font-size:4.5rem;font-weight:bold;letter-spacing:.1em;text-align:center;background:#fff;color:#222;border-radius:20px;padding:8px 16px;width:100%}
+#msg{min-height:2.2rem;font-size:1.5rem;text-align:center;font-weight:bold}
+#heard{font-size:1rem;opacity:.7;min-height:1.3rem}
+.row{display:flex;gap:10px;width:100%}
+.row .big{flex:1}
+#mic.listening{animation:pulse 1s infinite;background:#c0392b}
+@keyframes pulse{50%{transform:scale(1.04)}}
+#resultScore{font-size:5rem;font-weight:bold;color:#f1c40f}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ホーム -->
+<div id="home" class="screen on">
+  <h1>🥊 かいじゅう<br>ボクシング</h1>
+  <div style="font-size:5rem">👹 👾 🦖</div>
+  <div class="card"><h3>れんしゅうする おと</h3>
+    <div class="chips" id="soundChips"></div></div>
+  <div class="card"><h3>はんてい</h3>
+    <div class="chips" id="modeChips"></div></div>
+  <div class="card"><h3>むずかしさ</h3>
+    <div class="chips" id="levelChips"></div></div>
+  <button class="big red" id="startBtn">スタート！</button>
+  <div style="font-size:1.1rem">🏆 ベストスコア：<span id="best">0</span></div>
+</div>
+
+<!-- ゲーム -->
+<div id="game" class="screen">
+  <div id="hud"><span>👹 <span id="score">0</span>たい</span><span id="count">1/10</span></div>
+  <div id="ring"><div id="monster">👹</div><div id="glove">🥊</div><div id="fx">KO!</div></div>
+  <div id="soundLabel"></div>
+  <div id="wordCard"><div id="pic">🐟</div><div id="word">さかな</div></div>
+  <div id="msg"></div>
+  <div id="heard"></div>
+  <div class="row">
+    <button class="big small blue" id="listen">🔊 おてほん</button>
+    <button class="big small gray" id="skip">つぎへ ▶</button>
+  </div>
+  <button class="big red" id="mic">🎤 いってみよう！</button>
+  <div class="row" id="judgeRow" style="display:none">
+    <button class="big green" id="okBtn">⭕ できた！</button>
+    <button class="big yellow" id="ngBtn">もういちど</button>
+  </div>
+  <button class="big small gray" id="quit">やめる</button>
+</div>
+
+<!-- 結果 -->
+<div id="result" class="screen">
+  <h1>おつかれさま！</h1>
+  <div style="font-size:1.6rem">たおしたかいじゅう</div>
+  <div id="resultScore">0</div>
+  <div id="resultMsg" style="font-size:1.6rem;text-align:center"></div>
+  <div style="font-size:4rem">🏆</div>
+  <button class="big red" id="again">もういちど！</button>
+  <button class="big gray small" id="toHome">ホームへ</button>
+</div>
+
+</div>
+
+<script>
+// ===== ことばデータ =====
+// w:ひょうじ(ひらがな) alt:ほかのかきかた
+const WORDS = {
+  "あ・か・さ行":[
+    {w:"あめ",alt:["雨","飴"]},{w:"あり",alt:["蟻"]},{w:"いぬ",alt:["犬"]},{w:"うし",alt:["牛"]},
+    {w:"かさ",alt:["傘"]},{w:"かに",alt:["蟹"]},{w:"きつね",alt:["狐"]},{w:"くるま",alt:["車"]},
+    {w:"さかな",alt:["魚"]},{w:"さる",alt:["猿"]},{w:"すいか",alt:["スイカ","西瓜"]},{w:"せみ",alt:["蝉"]},{w:"そら",alt:["空"]}
+  ],
+  "た・な・は行":[
+    {w:"たまご",alt:["卵"]},{w:"たいこ",alt:["太鼓"]},{w:"てんき",alt:["天気"]},{w:"とけい",alt:["時計"]},
+    {w:"なす",alt:["茄子"]},{w:"にんじん",alt:["人参"]},{w:"ねこ",alt:["猫"]},{w:"のり",alt:["海苔"]},
+    {w:"はな",alt:["花","鼻"]},{w:"ひこうき",alt:["飛行機"]},{w:"ふね",alt:["船"]},{w:"へび",alt:["蛇"]},{w:"ほし",alt:["星"]}
+  ],
+  "ま・や・ら・わ行":[
+    {w:"まめ",alt:["豆"]},{w:"みかん",alt:["蜜柑"]},{w:"むし",alt:["虫"]},{w:"めがね",alt:["眼鏡","メガネ"]},{w:"もも",alt:["桃"]},
+    {w:"やま",alt:["山"]},{w:"ゆき",alt:["雪"]},{w:"よる",alt:["夜"]},
+    {w:"らいおん",alt:["ライオン"]},{w:"りんご",alt:["林檎"]},{w:"るすばん",alt:["留守番"]},{w:"れもん",alt:["レモン"]},{w:"ろけっと",alt:["ロケット"]},
+    {w:"わに",alt:["鰐"]}
+  ],
+  "ぱ・ば・だ行":[
+    {w:"ぱんだ",alt:["パンダ"]},{w:"ぴあの",alt:["ピアノ"]},{w:"ぷりん",alt:["プリン"]},{w:"ぺんぎん",alt:["ペンギン"]},{w:"ぽすと",alt:["ポスト"]},
+    {w:"ばなな",alt:["バナナ"]},{w:"ばす",alt:["バス"]},{w:"ぶた",alt:["豚"]},{w:"ぼうし",alt:["帽子"]},
+    {w:"だるま",alt:["達磨"]},{w:"でんしゃ",alt:["電車"]},{w:"どあ",alt:["ドア"]}
+  ],
+  "ながいことば":[
+    {w:"ごりら",alt:["ゴリラ"]},{w:"ぞう",alt:["象"]},{w:"うさぎ",alt:["兎"]},{w:"ひまわり",alt:["向日葵"]},
+    {w:"とうもろこし",alt:[]},{w:"しょうぼうしゃ",alt:["消防車"]},{w:"きゅうきゅうしゃ",alt:["救急車"]},
+    {w:"ちょうちょう",alt:["蝶々","蝶"]},{w:"ぼくしんぐ",alt:["ボクシング"]},{w:"かいじゅう",alt:["怪獣"]}
+  ]
+};
+// ことばに あう イラスト（絵文字）。ここにないことばは出ません
+const EMO={
+ "あめ":"🌧️","あり":"🐜","いぬ":"🐶","うし":"🐮","かさ":"☂️","かに":"🦀","きつね":"🦊","くるま":"🚗",
+ "さかな":"🐟","さる":"🐵","すいか":"🍉","そら":"🌤️",
+ "たまご":"🥚","たいこ":"🥁","てんき":"☀️","とけい":"⏰","なす":"🍆","にんじん":"🥕","ねこ":"🐱",
+ "はな":"🌸","ひこうき":"✈️","ふね":"🚢","へび":"🐍","ほし":"⭐",
+ "まめ":"🫘","みかん":"🍊","むし":"🐛","めがね":"👓","もも":"🍑","やま":"⛰️","ゆき":"⛄","よる":"🌙",
+ "らいおん":"🦁","りんご":"🍎","れもん":"🍋","ろけっと":"🚀","わに":"🐊",
+ "ぱんだ":"🐼","ぴあの":"🎹","ぷりん":"🍮","ぺんぎん":"🐧","ぽすと":"📮",
+ "ばなな":"🍌","ばす":"🚌","ぶた":"🐷","ぼうし":"👒","でんしゃ":"🚃","どあ":"🚪",
+ "ごりら":"🦍","ぞう":"🐘","うさぎ":"🐰","ひまわり":"🌻","とうもろこし":"🌽",
+ "しょうぼうしゃ":"🚒","きゅうきゅうしゃ":"🚑","ちょうちょう":"🦋","ぼくしんぐ":"🥊","かいじゅう":"👹"
+};
+const MONSTERS=["👹","👾","🦖","🐉","👻","🤖","🐙","🦑","👽","🧟"];
+const PRAISE=["ナイスパンチ！","すごい！","かっこいい！","やったね！","さいこう！","チャンピオン！"];
+const RETRY=["おしい！もういちど！","がんばれ！","もういっかい！","いいかんじ！もういちど"];
+const ROUND_SIZE=10;
+
+// ===== 状態 =====
+const S={sounds:new Set(Object.keys(WORDS).slice(0,1)),mode:"auto",level:"easy"};
+let queue=[],idx=0,score=0,cur=null,busy=false,listening=false,rec=null;
+const $=id=>document.getElementById(id);
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+
+// ===== ホーム画面 =====
+function chips(el,items,isSel,onClick){
+  el.innerHTML="";
+  items.forEach(([k,label])=>{
+    const d=document.createElement("div");
+    d.className="chip"+(isSel(k)?" sel":"");d.textContent=label;
+    d.onclick=()=>{onClick(k);chips(el,items,isSel,onClick)};
+    el.appendChild(d);
+  });
+}
+chips($("soundChips"),Object.keys(WORDS).map(k=>[k,k]),k=>S.sounds.has(k),k=>{
+  if(S.sounds.has(k)){if(S.sounds.size>1)S.sounds.delete(k)}else S.sounds.add(k);
+});
+const modes=[["auto","🎤 じどう（こえをきく）"],["helper","👪 おうえんの人がはんてい"]];
+if(!SR){S.mode="helper";}
+chips($("modeChips"),modes,k=>S.mode===k,k=>{if(k==="auto"&&!SR){alert("このブラウザは音声にんしき非対応です。Chrome か Safari で ひらいてください");return}S.mode=k});
+chips($("levelChips"),[["easy","やさしい"],["normal","ふつう"]],k=>S.level===k,k=>S.level=k);
+function loadBest(){try{$("best").textContent=localStorage.getItem("kaiju-best")||0}catch(e){}}
+loadBest();
+
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));$(id).classList.add("on")}
+
+// ===== 文字正規化・判定 =====
+function toHira(s){return s.replace(/[\u30A1-\u30F6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60))}
+function norm(s){return toHira(s||"").replace(/[\s、。，．,.!！?？ー〜~・「」]/g,"").toLowerCase()}
+function lev(a,b){
+  const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>[i]);
+  for(let j=1;j<=n;j++)d[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[m][n];
+}
+function judge(cands){
+  const targets=[cur.w,...cur.alt].map(norm);
+  const th=S.level==="easy"?0.5:0.75;
+  for(const c of cands){
+    const n=norm(c);if(!n)continue;
+    for(const t of targets){
+      if(n===t||n.includes(t))return true;
+      const sim=1-lev(n,t)/Math.max(n.length,t.length);
+      if(sim>=th&&Math.abs(n.length-t.length)<=(S.level==="easy"?2:1))return true;
+    }
+  }
+  return false;
+}
+
+// ===== 音声 =====
+function speak(text){
+  if(!window.speechSynthesis)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);u.lang="ja-JP";u.rate=.7;u.pitch=1.1;
+  speechSynthesis.speak(u);
+}
+function startListen(){
+  if(busy||listening)return;
+  if(S.mode==="helper"){return}
+  rec=new SR();rec.lang="ja-JP";rec.interimResults=false;rec.maxAlternatives=8;rec.continuous=false;
+  listening=true;$("mic").classList.add("listening");$("mic").textContent="👂 きいてるよ…";
+  $("msg").textContent="";$("heard").textContent="";
+  let got=false;
+  rec.onresult=e=>{
+    got=true;
+    const cands=[];
+    for(const r of e.results)for(let i=0;i<r.length;i++)cands.push(r[i].transcript);
+    $("heard").textContent="きこえたこと： "+cands[0];
+    endListen();
+    onResult(judge(cands));
+  };
+  rec.onerror=e=>{
+    endListen();
+    if(e.error==="not-allowed"||e.error==="service-not-allowed")$("msg").textContent="マイクをゆるしてね";
+    else if(!got)$("msg").textContent="もういちど ボタンをおしてね";
+  };
+  rec.onend=()=>{if(!got){endListen();if(!$("msg").textContent)$("msg").textContent="こえがきこえなかったよ"}};
+  try{rec.start()}catch(e){endListen()}
+}
+function endListen(){listening=false;$("mic").classList.remove("listening");$("mic").textContent="🎤 いってみよう！";try{rec&&rec.stop()}catch(e){}}
+
+// ===== ゲーム進行 =====
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function startGame(){
+  let pool=[];S.sounds.forEach(k=>pool.push(...WORDS[k].filter(x=>EMO[x.w])));
+  queue=shuffle(pool).slice(0,ROUND_SIZE);
+  idx=0;score=0;$("score").textContent=0;
+  $("judgeRow").style.display=S.mode==="helper"?"flex":"none";
+  $("mic").style.display=S.mode==="helper"?"none":"block";
+  show("game");nextWord();
+}
+function nextWord(){
+  if(idx>=queue.length)return finish();
+  cur=queue[idx];busy=false;
+  $("word").innerHTML="<b>"+cur.w[0]+"</b>"+cur.w.slice(1);
+  $("pic").textContent=EMO[cur.w]||"";
+  $("soundLabel").textContent="「"+cur.w[0]+"」の おと";
+  $("count").textContent=(idx+1)+"/"+queue.length;
+  $("msg").textContent="";$("heard").textContent="";
+  const m=$("monster");m.textContent=MONSTERS[Math.floor(Math.random()*MONSTERS.length)];
+  m.className="";void m.offsetWidth;m.className="in";
+  setTimeout(()=>speak(cur.w),600);
+}
+function onResult(ok){
+  if(busy)return;
+  if(ok){
+    busy=true;
+    const g=$("glove"),m=$("monster"),fx=$("fx");
+    g.classList.add("punch");
+    setTimeout(()=>{m.className="hit";fx.textContent="KO!";fx.className="";void fx.offsetWidth;fx.className="show";
+      g.classList.remove("punch");setTimeout(()=>{m.className="down"},350)},150);
+    score++;$("score").textContent=score;
+    $("msg").textContent="🎉 "+PRAISE[Math.floor(Math.random()*PRAISE.length)];
+    setTimeout(()=>{idx++;nextWord()},1800);
+  }else{
+    $("msg").textContent=RETRY[Math.floor(Math.random()*RETRY.length)];
+    const m=$("monster");m.className="";void m.offsetWidth;m.className="hit";
+  }
+}
+function finish(){
+  $("resultScore").textContent=score;
+  $("resultMsg").textContent=score>=8?"すごい！チャンピオン！":score>=5?"よくがんばったね！":"またやろうね！";
+  try{const b=+localStorage.getItem("kaiju-best")||0;if(score>b)localStorage.setItem("kaiju-best",score)}catch(e){}
+  loadBest();show("result");
+}
+
+$("startBtn").onclick=startGame;
+$("mic").onclick=startListen;
+$("listen").onclick=()=>speak(cur.w);
+$("skip").onclick=()=>{if(busy)return;idx++;nextWord()};
+$("okBtn").onclick=()=>onResult(true);
+$("ngBtn").onclick=()=>onResult(false);
+$("quit").onclick=()=>{endListen();speechSynthesis&&speechSynthesis.cancel();show("home")};
+$("again").onclick=startGame;
+$("toHome").onclick=()=>show("home");
+</script>
+</body>
+</html>
